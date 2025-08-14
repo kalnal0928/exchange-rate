@@ -478,10 +478,10 @@
             apiStatus.textContent = '데이터 요청 중...';
 
             try {
-                const proxyUrl = 'https://corsproxy.io/?';
+                const proxyUrl = 'https://proxy.cors.sh/';
                 const targetUrl = 'https://finance.naver.com/marketindex/';
                 
-                const response = await fetch(proxyUrl + encodeURIComponent(targetUrl));
+                const response = await fetch(proxyUrl + targetUrl);
                 const html = await response.text();
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
@@ -541,12 +541,12 @@
 
         // 히스토리 데이터 생성
         async function generateHistoricalData(period) {
-            const proxyUrl = 'https://corsproxy.io/?';
+            const proxyUrl = 'https://proxy.cors.sh/';
             // Naver Finance URL does not support period, so we will fetch the first page and filter by period
             const targetUrl = `https://finance.naver.com/marketindex/exchangeDailyQuote.nhn?marketindexCd=FX_USDKRW&page=1`;
             
             try {
-                const response = await fetch(proxyUrl + encodeURIComponent(targetUrl));
+                const response = await fetch(proxyUrl + targetUrl);
                 const html = await response.text();
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
