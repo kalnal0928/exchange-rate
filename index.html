@@ -708,10 +708,12 @@
             const usdValue = usdInput.value;
             
             if (usdValue) {
-                krwInput.value = Math.round(parseFloat(usdValue) * currentRate);
+                let usdAmount = parseFloat(usdValue.replace(/,/g, ''));
+                krwInput.value = Math.round(usdAmount * currentRate).toLocaleString('ko-KR');
                 usdInput.value = '';
             } else if (krwValue) {
-                usdInput.value = (parseFloat(krwValue) / currentRate).toFixed(2);
+                let krwAmount = parseFloat(krwValue.replace(/,/g, ''));
+                usdInput.value = (krwAmount / currentRate).toFixed(2);
                 krwInput.value = '';
             }
         }
@@ -722,33 +724,46 @@
             const usdInput = document.getElementById('usdInput');
             
             if (krwInput.value) {
-                const krwAmount = parseFloat(krwInput.value);
-                usdInput.value = (krwAmount / currentRate).toFixed(2);
+                const krwAmount = parseFloat(krwInput.value.replace(/,/g, ''));
+                if (!isNaN(krwAmount)) {
+                    usdInput.value = (krwAmount / currentRate).toFixed(2);
+                }
             } else if (usdInput.value) {
-                const usdAmount = parseFloat(usdInput.value);
-                krwInput.value = Math.round(usdAmount * currentRate);
+                const usdAmount = parseFloat(usdInput.value.replace(/,/g, ''));
+                if (!isNaN(usdAmount)) {
+                    krwInput.value = Math.round(usdAmount * currentRate).toLocaleString('ko-KR');
+                }
             }
         }
 
         // 이벤트 리스너
         document.getElementById('krwInput').addEventListener('input', function(e) {
-            const krwAmount = parseFloat(e.target.value);
+            let value = e.target.value.replace(/,/g, '');
+            const krwAmount = parseFloat(value);
             const usdInput = document.getElementById('usdInput');
             
             if (!isNaN(krwAmount) && krwAmount >= 0) {
+                e.target.value = krwAmount.toLocaleString('ko-KR');
                 usdInput.value = (krwAmount / currentRate).toFixed(2);
             } else {
+                e.target.value = '';
                 usdInput.value = '';
             }
         });
 
         document.getElementById('usdInput').addEventListener('input', function(e) {
-            const usdAmount = parseFloat(e.target.value);
+            let value = e.target.value.replace(/,/g, '');
+            const usdAmount = parseFloat(value);
             const krwInput = document.getElementById('krwInput');
             
             if (!isNaN(usdAmount) && usdAmount >= 0) {
-                krwInput.value = Math.round(usdAmount * currentRate);
+                let parts = value.split('.');
+                parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                e.target.value = parts.join('.');
+
+                krwInput.value = Math.round(usdAmount * currentRate).toLocaleString('ko-KR');
             } else {
+                e.target.value = '';
                 krwInput.value = '';
             }
         });
