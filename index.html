@@ -478,7 +478,7 @@
             apiStatus.textContent = '데이터 요청 중...';
 
             try {
-                const proxyUrl = 'https://api.allorigins.win/raw?url=';
+                const proxyUrl = 'https://corsproxy.io/?';
                 const targetUrl = 'https://finance.naver.com/marketindex/';
                 
                 const response = await fetch(proxyUrl + encodeURIComponent(targetUrl));
@@ -541,7 +541,7 @@
 
         // 히스토리 데이터 생성
         async function generateHistoricalData(period) {
-            const proxyUrl = 'https://api.allorigins.win/raw?url=';
+            const proxyUrl = 'https://corsproxy.io/?';
             // Naver Finance URL does not support period, so we will fetch the first page and filter by period
             const targetUrl = `https://finance.naver.com/marketindex/exchangeDailyQuote.nhn?marketindexCd=FX_USDKRW&page=1`;
             
