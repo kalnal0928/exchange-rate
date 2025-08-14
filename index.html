@@ -478,29 +478,43 @@
             apiStatus.textContent = '데이터 요청 중...';
 
             try {
-                const proxyUrl = 'https://api.allorigins.win/raw?url=';
-                const targetUrl = 'https://finance.naver.com/marketindex/';
-                
-                const response = await fetch(proxyUrl + encodeURIComponent(targetUrl));
-                const html = await response.text();
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const rateElement = doc.querySelector('body > div.section_exchange.section_today > table > tbody > tr:nth-child(1) > td:nth-child(2)');
-                
-                if (rateElement) {
-                    const rate = parseFloat(rateElement.textContent.replace(/,/g, ''));
+                // 우선 시도: exchangerate.host (CORS 허용, 키 불필요)
+                let rate = null;
+
+                try {
+                    const res1 = await fetch('https://api.exchangerate.host/latest?base=USD&symbols=KRW');
+                    if (res1.ok) {
+                        const data1 = await res1.json();
+                        rate = data1 && data1.rates && data1.rates.KRW;
+                    }
+                } catch (e) {
+                    // 무시하고 폴백 시도
+                }
+
+                // 폴백: open.er-api.com (CORS 허용)
+                if (!rate) {
+                    const res2 = await fetch('https://open.er-api.com/v6/latest/USD');
+                    if (res2.ok) {
+                        const data2 = await res2.json();
+                        if ((data2.result === 'success' || data2.result === 'Success' || data2.result === undefined) && data2.rates && data2.rates.KRW) {
+                            rate = data2.rates.KRW;
+                        }
+                    }
+                }
+
+                if (typeof rate === 'number' && !isNaN(rate)) {
                     previousRate = currentRate;
                     currentRate = rate;
-                    
+
                     updateCurrentRateDisplay();
                     updateCalculator();
-                    
+
                     apiStatus.className = 'api-status success';
                     apiStatus.textContent = '✅ 실시간 데이터 연결됨';
                 } else {
-                    throw new Error('환율 데이터 파싱 실패');
+                    throw new Error('유효한 환율 데이터를 가져오지 못했습니다');
                 }
-                
+
             } catch (error) {
                 console.error('환율 데이터 가져오기 실패:', error);
                 
@@ -541,42 +555,42 @@
 
         // 히스토리 데이터 생성
         async function generateHistoricalData(period) {
-            const proxyUrl = 'https://api.allorigins.win/raw?url=';
-            // Naver Finance URL does not support period, so we will fetch the first page and filter by period
-            const targetUrl = `https://finance.naver.com/marketindex/exchangeDailyQuote.nhn?marketindexCd=FX_USDKRW&page=1`;
-            
+            let days;
+            switch(period) {
+                case '1w': days = 7; break;
+                case '1m': days = 30; break;
+                case '6m': days = 180; break;
+                case '1y': days = 365; break;
+                default: days = 7;
+            }
+
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - days + 1);
+            const fmt = (d) => d.toISOString().slice(0, 10);
+
             try {
-                const response = await fetch(proxyUrl + encodeURIComponent(targetUrl));
-                const html = await response.text();
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const rows = doc.querySelectorAll('.tbl_exchange tbody tr');
-                
-                const data = [];
-                rows.forEach(row => {
-                    const dateEl = row.querySelector('.date');
-                    const rateEl = row.querySelectorAll('td')[1];
-                    if (dateEl && rateEl) {
-                        data.push({
-                            date: dateEl.textContent.trim().replace(/\./g, '-'),
-                            rate: parseFloat(rateEl.textContent.trim().replace(/,/g, ''))
-                        });
-                    }
-                });
+                const url = `https://api.exchangerate.host/timeseries?start_date=${fmt(startDate)}&end_date=${fmt(endDate)}&base=USD&symbols=KRW`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('timeseries 요청 실패');
+                const json = await response.json();
+                if (!json || !json.rates) throw new Error('timeseries 응답 형식 오류');
 
-                let days;
-                switch(period) {
-                    case '1w': days = 7; break;
-                    case '1m': days = 30; break;
-                    case '6m': days = 180; break;
-                    case '1y': days = 365; break;
-                    default: days = 7;
-                }
-
-                return data.slice(0, days).reverse(); // Take the last 'days' entries and reverse to have oldest first
+                const dates = Object.keys(json.rates).sort();
+                return dates.map(date => ({
+                    date,
+                    rate: parseFloat((json.rates[date] && (json.rates[date].KRW ?? json.rates[date]['KRW'])) || 'NaN')
+                })).filter(item => !isNaN(item.rate));
             } catch (error) {
                 console.error('과거 환율 데이터 가져오기 실패:', error);
-                return []; // Return empty array on error
+                // 폴백: 현재 환율로 평탄한 히스토리 생성
+                const data = [];
+                for (let i = days - 1; i >= 0; i--) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    data.push({ date: d.toISOString().slice(0, 10), rate: currentRate });
+                }
+                return data;
             }
         }
 
@@ -668,6 +682,9 @@
 
         // 통계 정보 업데이트
         function updateStats(data) {
+            if (!data || data.length === 0) {
+                return;
+            }
             const rates = data.map(d => d.rate);
             const max = Math.max(...rates);
             const min = Math.min(...rates);
