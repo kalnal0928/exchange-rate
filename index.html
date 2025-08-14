@@ -507,22 +507,12 @@
             } catch (error) {
                 console.error('환율 데이터 가져오기 실패:', error);
                 
-                // 오류 시 시뮬레이션 데이터 사용
-                simulateRateUpdate();
-                
                 apiStatus.className = 'api-status error';
-                apiStatus.textContent = '⚠️ 시뮬레이션 모드';
+                apiStatus.textContent = '⚠️ 데이터 로드 실패';
             } finally {
                 refreshBtn.disabled = false;
                 refreshBtn.textContent = '🔄 실시간 업데이트';
             }
-        }
-
-        // 환율 시뮬레이션 (API 실패시 사용)
-        function simulateRateUpdate() {
-            const change = (Math.random() - 0.5) * 3;
-            previousRate = currentRate;
-            currentRate = Math.round((currentRate + change) * 100) / 100;
         }
 
         // 현재 환율 표시 업데이트
