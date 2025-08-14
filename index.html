@@ -478,19 +478,19 @@
             apiStatus.textContent = '데이터 요청 중...';
 
             try {
-                // GitHub Pages에서는 CORS 제한으로 직접 접근이 어려우므로
-                // 공개 API 또는 프록시 서비스를 사용해야 함
-                
-                // 예시: 무료 환율 API 사용
                 const proxyUrl = 'https://api.allorigins.win/raw?url=';
-                const targetUrl = 'https://api.exchangerate-api.com/v4/latest/USD';
+                const targetUrl = 'https://finance.naver.com/marketindex/';
                 
                 const response = await fetch(proxyUrl + encodeURIComponent(targetUrl));
-                const data = await response.json();
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const rateElement = doc.querySelector('#exchangeList_1 > li.on > a.head.usd > div > span.value');
                 
-                if (data && data.rates && data.rates.KRW) {
+                if (rateElement) {
+                    const rate = parseFloat(rateElement.textContent.replace(/,/g, ''));
                     previousRate = currentRate;
-                    currentRate = data.rates.KRW;
+                    currentRate = rate;
                     
                     updateCurrentRateDisplay();
                     updateCalculator();
