@@ -543,41 +543,50 @@
         }
 
         // 히스토리 데이터 생성
-        function generateHistoricalData(period) {
-            const data = [];
-            const now = new Date();
-            let days;
-
-            switch(period) {
-                case '1w': days = 7; break;
-                case '1m': days = 30; break;
-                case '6m': days = 180; break;
-                case '1y': days = 365; break;
-                default: days = 7;
-            }
-
-            for (let i = days; i >= 0; i--) {
-                const date = new Date(now);
-                date.setDate(date.getDate() - i);
+        async function generateHistoricalData(period) {
+            const proxyUrl = 'https://api.allorigins.win/raw?url=';
+            // Naver Finance URL does not support period, so we will fetch the first page and filter by period
+            const targetUrl = `https://finance.naver.com/marketindex/exchangeDailyQuote.nhn?marketindexCd=FX_USDKRW&page=1`;
+            
+            try {
+                const response = await fetch(proxyUrl + encodeURIComponent(targetUrl));
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const rows = doc.querySelectorAll('.tbl_exchange tbody tr');
                 
-                const volatility = period === '1w' ? 5 : period === '1m' ? 15 : period === '6m' ? 30 : 50;
-                const trend = Math.sin(i * 0.05) * volatility;
-                const randomWalk = (Math.random() - 0.5) * volatility * 0.3;
-                const rate = currentRate + trend + randomWalk;
-                
-                data.push({
-                    date: date.toISOString().split('T')[0],
-                    rate: Math.round(rate * 100) / 100
+                const data = [];
+                rows.forEach(row => {
+                    const dateEl = row.querySelector('.date');
+                    const rateEl = row.querySelectorAll('td')[1];
+                    if (dateEl && rateEl) {
+                        data.push({
+                            date: dateEl.textContent.trim().replace(/\./g, '-'),
+                            rate: parseFloat(rateEl.textContent.trim().replace(/,/g, ''))
+                        });
+                    }
                 });
-            }
 
-            return data;
+                let days;
+                switch(period) {
+                    case '1w': days = 7; break;
+                    case '1m': days = 30; break;
+                    case '6m': days = 180; break;
+                    case '1y': days = 365; break;
+                    default: days = 7;
+                }
+
+                return data.slice(0, days).reverse(); // Take the last 'days' entries and reverse to have oldest first
+            } catch (error) {
+                console.error('과거 환율 데이터 가져오기 실패:', error);
+                return []; // Return empty array on error
+            }
         }
 
         // 차트 초기화 및 업데이트
-        function updateChart() {
+        async function updateChart() {
             const ctx = document.getElementById('exchangeChart').getContext('2d');
-            const data = generateHistoricalData(currentPeriod);
+            const data = await generateHistoricalData(currentPeriod);
 
             if (chart) {
                 chart.destroy();
@@ -679,7 +688,7 @@
         }
 
         // 기간 설정
-        function setPeriod(period) {
+        async function setPeriod(period) {
             currentPeriod = period;
             
             document.querySelectorAll('.period-btn').forEach(btn => {
@@ -687,7 +696,7 @@
             });
             document.querySelector(`[data-period="${period}"]`).classList.add('active');
             
-            updateChart();
+            await updateChart();
         }
 
         // 통화 교환
@@ -760,7 +769,7 @@
             
             // 첫 실시간 업데이트
             await fetchRealTimeRate();
-            updateChart();
+            await updateChart();
             
             // 5분마다 자동 업데이트
             setInterval(fetchRealTimeRate, 5 * 60 * 1000);
